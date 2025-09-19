@@ -2,20 +2,31 @@
 
 import { useEffect, useState } from "react"
 import type { User } from "@supabase/supabase-js"
-import { supabase } from "@/lib/supabase"
+import { supabase, isSupabaseConfigured } from "@/lib/supabase"
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setLoading(false)
+      return
+    }
+
     // Get initial session
     const getInitialSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
-      setLoading(false)
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        setUser(session?.user ?? null)
+      } catch (error) {
+        console.error("Error getting session:", error)
+        setUser(null)
+      } finally {
+        setLoading(false)
+      }
     }
 
     getInitialSession()
@@ -32,6 +43,10 @@ export function useAuth() {
   }, [])
 
   const signUp = async (email: string, password: string, fullName: string) => {
+    if (!isSupabaseConfigured) {
+      return { data: null, error: { message: "Supabase not configured. Please set up your environment variables." } }
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -55,10 +70,18 @@ export function useAuth() {
   }
 
   const signIn = async (email: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      return { data: null, error: { message: "Supabase not configured. Please set up your environment variables." } }
+    }
+
     return await supabase.auth.signInWithPassword({ email, password })
   }
 
   const signOut = async () => {
+    if (!isSupabaseConfigured) {
+      return { error: null }
+    }
+
     return await supabase.auth.signOut()
   }
 
@@ -68,5 +91,6 @@ export function useAuth() {
     signUp,
     signIn,
     signOut,
+    isConfigured: isSupabaseConfigured,
   }
 }
